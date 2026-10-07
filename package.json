@@ -1,0 +1,20 @@
+{
+  "name": "linkedin-scheduler",
+  "version": "1.0.0",
+  "description": "Agendador de posts do LinkedIn em **Netlify Functions + Netlify Blobs**, usando a API oficial (OAuth 2.0, `w_member_social`). Sem servidor próprio: painel estático, funções serverless e uma função agendada (`@hourly`, UTC) que publica 1 post vencido por execução.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": "true",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.3"
+  }
+}

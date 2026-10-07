@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LinkedIn Scheduler</title>
+<style>
+:root{--bg:#0a0c10;--p:#12151c;--l:#262c3a;--t:#f2f4f8;--m:#8b93a5;--o:#ff5a36;--g:#2ecc71;--r:#ff4d4d;--y:#f1c40f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.5 system-ui,sans-serif;padding:24px;max-width:980px;margin-inline:auto}
+h1{margin:0 0 4px}h1 b{color:var(--o)}.card{background:var(--p);border:1px solid var(--l);border-radius:14px;padding:16px;margin:14px 0}
+input,textarea,button{font:inherit;color:var(--t);background:#0d1117;border:1px solid var(--l);border-radius:8px;padding:8px 10px}
+textarea{width:100%;min-height:90px}button{cursor:pointer}button.pri{background:var(--o);border-color:var(--o);color:#0a0c10;font-weight:700}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.m{color:var(--m)}table{width:100%;border-collapse:collapse}
+td,th{padding:8px;border-bottom:1px solid var(--l);text-align:left;vertical-align:top}.s-enviado{color:var(--g)}.s-erro{color:var(--r)}.s-aprovado{color:var(--y)}
+img{width:54px;border-radius:6px}
+</style></head><body>
+<h1>LinkedIn <b>Scheduler</b></h1><div class="m">Netlify Functions + Blobs · API oficial do LinkedIn</div>
+<div class="card row"><input id="key" type="password" placeholder="ADMIN_KEY"><button onclick="entrar()">Entrar</button>
+<button onclick="conectar()">Conectar LinkedIn</button><span id="conta" class="m"></span></div>
+<div class="card"><b>1. Importar posts</b> <span class="m">(cole o Markdown exportado do documento, com os títulos "## Post N — ...")</span>
+<textarea id="md"></textarea><div class="row" style="margin-top:8px"><button onclick="importar()">Importar</button></div></div>
+<div class="card row"><b>2. Agenda</b> <span class="m">primeira terça-feira:</span><input id="ini" type="date">
+<button class="pri" onclick="agendar()">Agendar 3 por semana (08:00 BRT) e aprovar todos</button></div>
+<div class="card"><b>3. Fila</b><table id="t"></table></div>
+<script>
+const ORDEM=[1,2,3,4,5,10,6,7,16,8,9,11,12,13,18,14,19,20,15,17,21,22,23,24,25,27,28,26,29,30];
+let K=sessionStorage.key||'',S={posts:[]};
+const $=i=>document.getElementById(i);$('key').value=K;
+const api=async(p,b)=>{const r=await fetch('/api/'+p,{method:b?'POST':'GET',headers:{'x-admin-key':K,'content-type':'application/json'},body:b?JSON.stringify(b):undefined});if(!r.ok)throw new Error((await r.json()).erro);return r.json()};
+async function entrar(){K=$('key').value;sessionStorage.key=K;try{S=await api('state');$('conta').textContent=S.conta?`conectado: ${S.conta.nome} · token expira em ${S.conta.dias} dias`:'LinkedIn não conectado';draw()}catch(e){alert(e.message)}}
+function conectar(){location.href='/.netlify/functions/auth-start?key='+encodeURIComponent($('key').value)}
+const salvar=()=>api('posts',S.posts);
+async function importar(){const parts=$('md').value.split(/^## Post (\d+)\s+[—-]\s+(.*)$/m),old=Object.fromEntries(S.posts.map(p=>[p.n,p])),out=[];
+ for(let i=1;i<parts.length;i+=3){const n=+parts[i],texto=parts[i+2].split(/\n-{3,}\s*(\n|$)/)[0].replace(/!\[[^\]]*\]\([^)]*\)/g,'').replace(/\*\*/g,'').trim();out.push({...old[n],n,titulo:parts[i+1].trim(),texto,status:old[n]?.status||'rascunho'})}
+ if(!out.length)return alert('Nenhum "## Post N —" encontrado');S.posts=out.sort((a,b)=>a.n-b.n);await salvar();draw()}
+async function agendar(){if(!$('ini').value)return alert('Escolha a data da primeira terça-feira');const ini=new Date($('ini').value+'T11:00:00Z');
+ ORDEM.forEach((n,i)=>{const p=S.posts.find(x=>x.n===n);if(!p||p.status==='enviado')return;const d=new Date(ini);d.setUTCDate(d.getUTCDate()+Math.floor(i/3)*7+i%3);p.agendar_em=d.toISOString();p.status='aprovado'});await salvar();draw()}
+async function agora(n){if(!confirm('Publicar o post '+n+' no LinkedIn agora?'))return;const r=await api('post-now',{n});S.posts=S.posts.map(p=>p.n===n?r.post:p);draw()}
+async function pausar(n){const p=S.posts.find(x=>x.n===n);p.status=p.status==='aprovado'?'rascunho':'aprovado';await salvar();draw()}
+function draw(){$('t').innerHTML='<tr><th></th><th>#</th><th>Post</th><th>Agendado</th><th>Status</th><th></th></tr>'+S.posts.map(p=>`<tr><td><img src="/media/post-${String(p.n).padStart(2,'0')}.png"></td><td>${p.n}</td><td>${p.titulo}<br><span class="m">${p.texto.slice(0,90)}…</span></td><td>${p.agendar_em?new Date(p.agendar_em).toLocaleString('pt-BR'):'—'}</td><td class="s-${p.status}">${p.status}${p.erro?'<br><small>'+p.erro+'</small>':''}${p.urn?'<br><small>'+p.urn+'</small>':''}</td><td>${p.status==='enviado'?'':`<button onclick="pausar(${p.n})">${p.status==='aprovado'?'Pausar':'Aprovar'}</button> <button onclick="agora(${p.n})">Postar agora</button>`}</td></tr>`).join('')}
+if(K)entrar();
+</script></body></html>
